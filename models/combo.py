@@ -35,11 +35,11 @@ class Combo(object):
         """
         train_data = self.train_data if not data else data
         samples = int(np.shape(train_data["mid"])[0]*0.8)
-        sub_train_data = {name:data[:samples] for name, data in train_data.items()}
+        self.sub_train_data = {name:data[:samples] for name, data in train_data.items()}
         train_data = {name:data[samples:] for name, data in train_data.items()}
         # Fit the submodels with their training data
         for model in self.models.values():
-            model.fit(sub_train_data)
+            model.fit(self.sub_train_data)
         # Get the predictions of the submodules of the train data
         y = self.get_y(train_data)
         predictions = np.zeros((np.size(y), len(self.models.keys())))
@@ -47,6 +47,7 @@ class Combo(object):
             predictions[:, i] = self.models[model_name].predict(train_data)
         # Include the raw data features in the model, this is questionable, consider changing to self.dtc.fit(predictions), see predict
         self.dtc.fit(self.get_x(predictions, train_data), y)
+        self.train_data = train_data
         tree.export_graphviz(self.dtc,
                              out_file='combiner_tree.dot',
                              feature_names=list(sorted(self.models.keys())) + list(sorted(self.train_data.keys())),
@@ -70,9 +71,15 @@ class Combo(object):
         y_true = self.get_y(test_data)
 
         print("-=Individual models=-")
+        
+        print("     \tSub  \tCombo\tTest")
+        print("Model\tTrain\tTrain\tData")
         for i, name in enumerate(sorted(self.models.keys())):
-            accuracy = np.sum(sub_pred[:, i] == y_true)/np.size(y_true)
-            print("{}\t{:4.2f}%".format(name, accuracy*100))
+            # Sub train data
+            st_acc = 100 * self.similarity(self.models[name].predict(self.sub_train_data), self.get_y(self.sub_train_data))
+            ct_acc = 100 * self.similarity(self.models[name].predict(self.train_data), self.get_y(self.train_data))
+            td_acc = 100 * np.sum(sub_pred[:, i] == y_true)/np.size(y_true)
+            print("{}  ┃  {:4.2f}\t{:4.2f}\t{:4.2f}%".format(name, st_acc, ct_acc, td_acc))
         
         print("\n-=Combined models=-")        
         opt = 0
