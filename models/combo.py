@@ -3,6 +3,7 @@ import numpy as np
 
 from .ema import EMA_model
 from .svm import SVM_model
+from .lep import LEP_model
 
 
 class Combo(object):
@@ -10,8 +11,12 @@ class Combo(object):
         self.train_data = train_data
         self.test_data = test_data
 
-        self.models = {"EMA": EMA_model(), "SVM": SVM_model()}
-        self.dtc = tree.DecisionTreeClassifier(random_state=0, criterion="entropy", max_depth=3)
+        self.models = {"EMA": EMA_model(),
+                       "SVM": SVM_model(),
+                       "LEP": LEP_model()}
+        self.dtc = tree.DecisionTreeClassifier(random_state=0,
+                                               criterion="entropy",
+                                               max_depth=3)
     
     def get_y(self, data):
         """ Format the y vector of the form [sign(t1 - t2), sign(t2 - t3), ...]
