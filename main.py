@@ -1,7 +1,11 @@
+import sys
+
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+
 from models.svm import SVM_model
 from models.ema import EMA_model
+from models.dst import DST_model
 from models.combo import Combo
 
 """ TODO:
@@ -76,6 +80,15 @@ for data_file in files:
     print()
 
 """
+for depth in range(1, 10):
+    dts = DST_model(max_depth=depth)
+    acc = []
+    for data_file in files:
+        train_data, test_data = read_data(data_file)
+        dts.fit(train_data)
+        acc.append(dts.test(test_data)*100)
+    print("Depth: {} {}".format(depth, ", ".join("{:4.2f}%".format(a) for a in acc)))
+
 train_data, test_data = read_data("data/AAL.csv")
 ema = EMA_model()
 ema.fit(train_data)

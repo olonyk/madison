@@ -4,7 +4,7 @@ import numpy as np
 from .ema import EMA_model
 from .svm import SVM_model
 from .lep import LEP_model
-
+from .dst import DST_model
 
 class Combo(object):
     def __init__(self, train_data, test_data):
@@ -13,7 +13,8 @@ class Combo(object):
 
         self.models = {"EMA": EMA_model(),
                        "SVM": SVM_model(),
-                       "LEP": LEP_model()}
+                       "LEP": LEP_model(),
+                       "DST": DST_model()}
         self.dtc = tree.DecisionTreeClassifier(random_state=0,
                                                criterion="entropy",
                                                max_depth=3)
