@@ -22,7 +22,7 @@ class Combo(object):
     def get_y(self, data):
         """ Format the y vector of the form [sign(t1 - t2), sign(t2 - t3), ...]
         """
-        return np.sign(data["mid"][1:] - data["mid"][:-1])
+        return np.sign(data["mid"][:-1] - data["mid"][1:])
     
     def get_x(self, sub_pred, data):
         for name in sorted(data.keys()):
@@ -70,26 +70,44 @@ class Combo(object):
         sub_pred, combined_pred = self.predict(test_data)
         y_true = self.get_y(test_data)
 
-        print("-=Individual models=-")
-        
-        print("     \tSub  \tCombo\tTest")
-        print("Model\tTrain\tTrain\tData")
+        print("     \tSub  \tCombo\tTest\t  Agent")
+        print("Model\tTrain\tTrain\tData\t  Simulation")
+        print("━━━━━┳"+"━"*26+"┳"+"━"*10)
         for i, name in enumerate(sorted(self.models.keys())):
             # Sub train data
             st_acc = 100 * self.similarity(self.models[name].predict(self.sub_train_data), self.get_y(self.sub_train_data))
             ct_acc = 100 * self.similarity(self.models[name].predict(self.train_data), self.get_y(self.train_data))
             td_acc = 100 * np.sum(sub_pred[:, i] == y_true)/np.size(y_true)
-            print("{}  ┃  {:4.2f}\t{:4.2f}\t{:4.2f}%".format(name, st_acc, ct_acc, td_acc))
+            agent = self.agent(sub_pred[:, i], self.test_data["mid"])
+            print("{}  ┃  {:4.2f}\t{:4.2f}\t{:4.2f}%  ┃  {:4.0f}".format(name, st_acc, ct_acc, td_acc, agent))
+        print("━━━━━╋"+"━"*26+"╋"+"━"*10)
         
-        print("\n-=Combined models=-")        
-        opt = 0
-        for y_t, y_p in zip(y_true, sub_pred):
-            if y_t in y_p:
-                opt += 1
-        opt = opt/np.size(y_true)
-        print("Accuracy possible: {:4.2f}%".format(opt*100))
-        print("Accuracy combined: {:4.2f}%".format(self.similarity(combined_pred, y_true)*100))
+        st_sub_pred, st_combined_pred = self.predict(self.sub_train_data)
+        st_y_true = self.get_y(self.sub_train_data)
+        ct_sub_pred, td_combined_pred = self.predict(self.train_data)
+        ct_y_true = self.get_y(self.train_data)
+        agent_dst = self.agent(combined_pred, self.test_data["mid"])
+        #print(self.get_opt_vec(sub_pred, y_true))
+        #agent_opt = self.agent(self.get_opt_vec(sub_pred, y_true), self.test_data["mid"])
+        agent_opt = self.agent(y_true, self.test_data["mid"])
+        
 
+        print("OPT  ┃  {:4.2f}\t{:4.2f}\t{:4.2f}%  ┃  {:4.0f}".format(
+                                    self.get_opt(st_sub_pred, st_y_true),
+                                    self.get_opt(ct_sub_pred, ct_y_true),
+                                    self.get_opt(sub_pred, y_true),
+                                    agent_opt))
+        print("DST  ┃  {:4.2f}\t{:4.2f}\t{:4.2f}%  ┃  {:4.0f}".format(
+                                    self.similarity(st_combined_pred, st_y_true)*100,
+                                    self.similarity(td_combined_pred, ct_y_true)*100,
+                                    self.similarity(combined_pred, y_true)*100,
+                                    agent_dst))
+
+        print("\nAgent Simulation")
+
+        purse = self.agent(combined_pred, self.test_data["mid"])
+
+        print("Agent simulator: {}".format(purse))
 
         print("\nSimilarity matrix:")
         names = sorted(self.models.keys())
@@ -100,5 +118,38 @@ class Combo(object):
                 sim.append(self.similarity(sub_pred[:, i], sub_pred[:, j]))
             print("{}\t{}".format(name, "\t".join("{:4.2f}".format(x) for x in sim)))
 
+    def get_opt(self, sub_pred, y_true):
+        opt = 0
+        for y_t, y_p in zip(y_true, sub_pred):
+            if y_t in y_p:
+                opt += 1
+        opt = opt/np.size(y_true)
+        return opt*100
+    
+    def get_opt_vec(self, sub_pred, y_true):
+        opt_vec = []
+        for y_t, y_p in zip(y_true, sub_pred):
+            if y_t in y_p:
+                opt_vec.append(y_t)
+            else:
+                opt_vec.append(y_p[0])
+        return opt_vec
+
     def similarity(self, x, y):
         return np.sum(x == y)/np.size(y)
+    
+    def agent(self, y_pred_vec, y_value_vec):
+        purse = 0
+        owned_stocks = 0
+        bought = False
+        for y_pred, y_value in zip(y_pred_vec, y_value_vec[1:]):
+            if y_pred == 1 and not bought:
+                owned_stocks = 1/y_value
+                bought = True
+            elif not y_pred == -1 and bought:
+                purse += owned_stocks*y_value
+                bought = False
+        if bought:
+            purse += owned_stocks*y_value_vec[-1]
+        return purse
+        
